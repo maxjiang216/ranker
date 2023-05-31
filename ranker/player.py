@@ -1,6 +1,5 @@
 import math
 
-
 class Player:
     """
     Represents a player or object that is to be ranked

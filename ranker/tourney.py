@@ -1,7 +1,8 @@
 from player import Player
 import math
 import random
-
+import numpy as np
+from sklearn.cluster import KMeans
 
 class Tourney:
     """
@@ -15,6 +16,7 @@ class Tourney:
         """
         self.players = players
         self.matches = []
+        self.last_pair = []
 
     def get_best_pair(self):
         """
@@ -52,12 +54,15 @@ class Tourney:
         In case of ties, returns the player with the fewest matches
         In case of ties, returns the player with the highest rating
         In case of ties, chooses randomly
+        Avoids choosing the same player twice in a row
         """
 
         highest_deviation = 0
         candidates = []
 
         for i, player in enumerate(self.players):
+            if i in self.last_pair:
+                continue
             if player.deviation > highest_deviation:
                 highest_deviation = player.deviation
                 candidates = [(i, player)]
@@ -65,7 +70,7 @@ class Tourney:
                 candidates.append((i, player))
 
         if len(candidates) == 1:
-            print(f"Best player: {candidates[0][1]} with deviation {highest_deviation}")
+            #print(f"Best player: {candidates[0][1]} with deviation {highest_deviation}")
             return candidates[0][0]
 
         fewest_matches = math.inf
@@ -81,7 +86,7 @@ class Tourney:
         candidates = new_candidates
 
         if len(candidates) == 1:
-            print(f"Best player: {candidates[0][1]} with fewest matches {fewest_matches}")
+            #print(f"Best player: {candidates[0][1]} with fewest matches {fewest_matches}")
             return candidates[0][0]
 
         highest_rating = -math.inf
@@ -97,10 +102,10 @@ class Tourney:
         candidates = new_candidates
 
         if len(candidates) == 1:
-            print(f"Best player: {candidates[0][1]} with rating {highest_rating}")
+            #print(f"Best player: {candidates[0][1]} with rating {highest_rating}")
             return candidates[0][0]
 
-        print(f"Choosing randomly from candidates {[candidate[1] for candidate in candidates]}")
+        #print(f"Choosing randomly from candidates {[candidate[1] for candidate in candidates]}")
         return random.choice(candidates)[0]
 
     def get_best_opp(self, player_id):
@@ -125,6 +130,8 @@ class Tourney:
         for i, opponent in enumerate(self.players):
             if i == player_id:
                 continue
+            if i in self.last_pair:
+                continue
             if previous_matches[i] < least_matches:
                 least_matches = previous_matches[i]
                 candidates = [(i, opponent)]
@@ -132,7 +139,7 @@ class Tourney:
                 candidates.append((i, opponent))
 
         if len(candidates) == 1:
-            print(f"Best opponent for {self.players[player_id]}: {candidates[0][1]} with {least_matches} matches")
+            #print(f"Best opponent for {self.players[player_id]}: {candidates[0][1]} with {least_matches} matches")
             return candidates[0][0]
         
         # Choose opponent with expected score closest to 0.5
@@ -156,7 +163,7 @@ class Tourney:
         candidates = new_candidates
 
         if len(candidates) == 1:
-            print(f"Best opponent for {self.players[player_id]}: {candidates[0][1]} with distance {closest_distance}")
+            #print(f"Best opponent for {self.players[player_id]}: {candidates[0][1]} with distance {closest_distance}")
             return candidates[0][0]
         
         # Choose opponent with least matches
@@ -175,10 +182,10 @@ class Tourney:
         candidates = new_candidates
 
         if len(candidates) == 1:
-            print(f"Best opponent for {self.players[player_id]}: {candidates[0][1]} with {least_matches} matches")
+            #print(f"Best opponent for {self.players[player_id]}: {candidates[0][1]} with {least_matches} matches")
             return candidates[0][0]
 
-        print(f"For {self.players[player_id]}, choosing randomly from candidates {[candidates[i][1] for i in range(len(candidates))]}")
+        #print(f"For {self.players[player_id]}, choosing randomly from candidates {[candidates[i][1] for i in range(len(candidates))]}")
         return random.choice(candidates)[0]
 
     def run(self, filename="results.txt"):
@@ -191,21 +198,43 @@ class Tourney:
         while response != "q":
             best_pair = self.get_best_pair()
             response = input(
-                f"{self.players[best_pair[0]].name} vs {self.players[best_pair[1]].name} (1-5), q to quit:\n"
+                f"{self.players[best_pair[0]].name} vs {self.players[best_pair[1]].name} (1-5), q to quit, i to import from file:\n"
             )
             if response == "q":
                 self.write_results(filename)
-                self.write_ratings()
+                n_clusters = input("Number of clusters, 0 to skip tiers: ")
+                try:
+                    n_clusters = int(n_clusters)
+                    if n_clusters < 0:
+                        raise ValueError
+                except ValueError:
+                    print("Invalid input, skipping clustering")
+                    n_clusters = 0
+                self.write_ratings(n=n_clusters)
                 break
+            elif response == "i":
+                filename = input("Filename:\n")
+                self.import_from_file(filename)
+                continue
             try:
                 score = int(response)
                 if score < 1 or score > 5:
                     raise ValueError
                 self.receive_comparison(best_pair[0], best_pair[1], (5 - score) / 4)
+                self.last_pair = best_pair
             except ValueError:
                 print("Invalid input")
                 continue
     
+    def import_from_file(self, filename):
+        """
+        Import match results from a file
+        """
+
+        with open(filename, "r") as f:
+            for line in f:
+                match = line.split()
+                self.receive_comparison(int(match[0]), int(match[1]), float(match[2]))
 
     def write_results(self, filename="results.txt"):
         """
@@ -216,20 +245,38 @@ class Tourney:
             for match in self.matches:
                 f.write(f"{match[0]} {match[1]} {match[2]}\n")
 
-    def write_ratings(self, *, filename="ratings.txt", epsilon=0.01):
+    def write_ratings(self, *, filename="ratings.txt", epsilon=0.01, n=0):
         """
         Writes the ratings of all players to a file
         """
 
         ratings = self.get_true_ratings(epsilon=epsilon)
-
-        results = [(ratings[i], self.players[i].name) for i in range(len(ratings))]
+        if n > 0:
+            tiers = self.get_tiers(ratings=ratings, n=n)
+            print(ratings)
+            print(tiers)
+            results = [(ratings[i], self.players[i].name, tiers[i]) for i in range(len(ratings))]
+        else:
+            results = [(ratings[i], self.players[i].name) for i in range(len(ratings))]
         results.sort(reverse=True, key=lambda x: x[0])
 
-        with open(filename, "w") as f:
-            for result in results:
-                f.write(f"{result[1]} {result[0]}\n")
+        
+        if n > 0:
+            with open(filename, "w") as f:
+                current_tier = results[0][2]
+                counter = 1
+                for result in results:
+                    f.write(f"{result[1]} {result[0]} {counter}\n")
+                    if result[2] != current_tier:
+                        current_tier = result[2]
+                        counter += 1
 
+        else:
+            with open(filename, "w") as f:
+                for result in results:
+                    f.write(f"{result[1]} {result[0]}\n")
+
+    # write this part in C++ for speed
     def get_true_ratings(self, *, epsilon=0.01):
         """
         Returns a list of ratings
@@ -287,3 +334,23 @@ class Tourney:
                 low = mid
 
         return (low + high) / 2
+
+    def get_tiers(self, ratings, n):
+        """
+        Returns a list of n tiers
+        """
+
+        # Reshape the data to fit the sklearn requirement for inputs
+        data = np.array(ratings).reshape(-1, 1)
+
+        # Create a KMeans instance with n_clusters
+        kmeans = KMeans(n_clusters=n, n_init=10)
+
+        # Fit the model to your data using the fit method
+        kmeans.fit(data)
+
+        # Now we can get the cluster centers
+        centers = kmeans.cluster_centers_
+
+        # And the labels for each data point
+        return list(kmeans.labels_)
