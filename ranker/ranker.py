@@ -18,8 +18,9 @@ class Ranker:
         with open(filename, 'r') as file:
             for line in file:
                 name = line.strip()
-                if name not in self.items:
-                    self.items.append(Item(name))
+                item = Item(name)
+                if item not in self.items:
+                    self.items.append(item)
 
     def get_best_item(self):
         """
@@ -29,7 +30,7 @@ class Ranker:
 
         max_variance_index = -1
         # Note that variance is always positive, so we don't need to check for negative values.
-        max_variance = 0
+        max_variance = (0, 0)
 
         for i in range(0, len(self.items)):
             if (self.items[i].variance, self.items[i].rating) > max_variance:
@@ -73,8 +74,8 @@ class Ranker:
         closest_distance = 0.5
         new_best_opponents = []
 
-        for i, opponent in best_opponents:
-            distance = abs(item.get_expected_score(opponent) - 0.5)
+        for i, opponent in enumerate(best_opponents):
+            distance = abs(item.get_expected_score(self.items[opponent]) - 0.5)
             if distance < closest_distance:
                 closest_distance = distance
                 new_best_opponents = [i]
@@ -136,6 +137,3 @@ class Ranker:
         This is a placeholder for actual implementation.
         """
         pass
-
-# Note: The actual implementations of get_next_comparison, give_comparison, and compile_results will be filled in later. 
-# They will incorporate the Glicko-like rating system and the selection strategy based on uncertainty and closeness.
