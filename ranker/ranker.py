@@ -22,21 +22,25 @@ class Ranker:
                 if item not in self.items:
                     self.items.append(item)
 
-    def get_best_item(self):
+    def get_best_item(self, *, choose_random=True):
         """
         Chooses the item with the highest rating variance.
         In case of ties, the item with the highest rating is chosen.
         """
 
-        max_variance_index = -1
+        max_variance_index = []
         # Note that variance is always positive, so we don't need to check for negative values.
         max_variance = (0, 0)
 
         for i in range(0, len(self.items)):
             if (self.items[i].variance, self.items[i].rating) > max_variance:
                 max_variance = (self.items[i].variance, self.items[i].rating)
-                max_variance_index = i
-        return max_variance_index
+                max_variance_index = [i]
+            elif (self.items[i].variance, self.items[i].rating) == max_variance:
+                max_variance_index.append(i)
+        if choose_random:
+            return random.choice(max_variance_index)
+        return max_variance_index[0]
     
     def get_best_opponent(self, id, *, choose_random=True):
         """
@@ -97,33 +101,46 @@ class Ranker:
         # Choose best opponent for that player
         best_opponent_id = self.get_best_opponent(best_id)
 
-        return (best_id, best_opponent_id)
+        return (self.items[best_id].name, self.items[best_opponent_id].name)
 
-    def give_comparison(self, item1, item2, result):
+    def add_comparison(self, name1, name2, result):
         """
         Updates the internal ranking system based on the outcome of a comparison.
         'result' is a float from 0 to 1 representing the preference for item2.
         """
 
-        if item1 == item2:
+        if name1 == name2:
             raise ValueError("Cannot compare an item to itself.")
         if result < 0 or result > 1:
             raise ValueError("Comparison result must be between 0 and 1.")
-        if item1 > item2:
-            item1, item2 = item2, item1
+        
+        id1, id2 = -1, -1
+        for i, item in enumerate(self.items):
+            if item.name == name1:
+                id1 = i
+            elif item.name == name2:
+                id2 = i
+
+        if id1 == -1:
+            raise ValueError(f"Item '{name1}' not found.")
+        if id2 == -1:
+            raise ValueError(f"Item '{name2}' not found.")
+        
+        if id1 > id2:
+            id1, id2 = id2, id1
             result = 1 - result
 
-        pair = (item1, item2)
+        pair = (id1, id2)
         if pair not in self.comparisons:
             self.comparisons[pair] = []
         self.comparisons[pair].append(result)
 
-        item1 = self.items[item1]
-        item2 = self.items[item2]
+        item1 = self.items[id1]
+        item2 = self.items[id2]
 
         item1_copy = Item(item1.name, item1.rating, item1.variance)
-        item1.update(result, item2)
-        item2.update(1 - result, item1_copy)
+        item1.update(1 - result, item2)
+        item2.update(result, item1_copy)
 
     def get_ranking(self):
         """
@@ -137,3 +154,11 @@ class Ranker:
         This is a placeholder for actual implementation.
         """
         pass
+
+    def export_to_file(self, filename):
+        """
+        Exports the current ranking to a text file.
+        """
+        with open(filename, "w+") as file:
+            for item in self.items:
+                file.write(f"{item.name}: {item.rating}\n")

@@ -17,7 +17,6 @@ class TestItem(unittest.TestCase):
 
     def test_update_rating_variance(self):
         """Test updating the rating and variance of the item."""
-        # Assuming 'update' method and related computations are correct; this will need actual values
         other_item = Item("OtherItem", 1400, 200)
         self.item.update(1, other_item)  # Assume a win against 'OtherItem'
         # Check if rating and variance updated to expected values; these values need to be calculated based on your update logic

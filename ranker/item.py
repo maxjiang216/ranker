@@ -1,5 +1,7 @@
 import math
+from functools import total_ordering
 
+@total_ordering
 class Item:
     """
     Represents an item to be ranked.
@@ -23,6 +25,12 @@ class Item:
     
     def __eq__(self, other):
         return self.name == other.name
+    
+    def __lt__(self, other):
+        return self.name < other.name
+    
+    def __hash__(self):
+        return hash(self.name)
     
     def get_g(self):
         """
