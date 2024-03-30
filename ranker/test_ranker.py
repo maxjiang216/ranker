@@ -2,6 +2,7 @@ import unittest
 from ranker import Ranker
 from item import Item
 
+
 class TestItem(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
@@ -43,5 +44,6 @@ class TestRanker(unittest.TestCase):
         self.assertIsInstance(next_comparison, tuple)
         self.assertEqual(len(next_comparison), 2)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

@@ -2,6 +2,7 @@ from item import Item
 import math
 import random
 
+
 class Ranker:
     def __init__(self):
         """
@@ -9,13 +10,14 @@ class Ranker:
         """
         self.items = []
         self.comparisons = {}
+        self.ids_to_avoid = []
 
     def import_items(self, filename):
         """
         Reads items from a text file and initializes their ratings.
         Each line in the file represents one item.
         """
-        with open(filename, 'r') as file:
+        with open(filename, "r") as file:
             for line in file:
                 name = line.strip()
                 item = Item(name)
@@ -25,32 +27,33 @@ class Ranker:
     def import_state(self, filename):
         self.items = []
         self.comparisons = {}
-        with open(filename, 'r') as file:
+        with open(filename, "r") as file:
             import_items = True
             for line in file:
                 if line.strip() == "Comparisons":
                     import_items = False
                     continue
-    
+
                 if import_items:
-                    name, rating, variance = line.strip().split(',')
+                    name, rating, variance = line.strip().split(",")
                     self.items.append(Item(name, float(rating), float(variance)))
                 else:
-                    pair, results = line.strip().split(':')
-                    id1, id2 = map(int, pair.split(','))
-                    self.comparisons[(id1, id2)] = [float(result) for result in results.split(',')]
+                    pair, results = line.strip().split(":")
+                    id1, id2 = map(int, pair.split(","))
+                    self.comparisons[(id1, id2)] = [
+                        float(result) for result in results.split(",")
+                    ]
 
     def export_state(self, filename, compile_results=True):
         if compile_results:
             self.compile_results()
-        with open(filename, 'w') as file:
+        with open(filename, "w") as file:
             for item in self.items:
                 file.write(f"{item.name},{item.rating},{item.variance}\n")
             file.write("Comparisons\n")
             for (id1, id2), results in self.comparisons.items():
-                comparisons_string = ','.join(str(result) for result in results)
+                comparisons_string = ",".join(str(result) for result in results)
                 file.write(f"{id1},{id2}:{comparisons_string}\n")
-    
 
     def get_best_item(self, *, choose_random=True):
         """
@@ -63,6 +66,8 @@ class Ranker:
         max_variance = (0, 0)
 
         for i in range(0, len(self.items)):
+            if i in self.ids_to_avoid:
+                continue
             if (self.items[i].variance, self.items[i].rating) > max_variance:
                 max_variance = (self.items[i].variance, self.items[i].rating)
                 max_variance_index = [i]
@@ -71,7 +76,7 @@ class Ranker:
         if choose_random:
             return random.choice(max_variance_index)
         return max_variance_index[0]
-    
+
     def get_best_opponent(self, id, *, choose_random=True):
         """
         Chooses the item that is the best opponent for the given item.
@@ -85,7 +90,7 @@ class Ranker:
         fewest_matches = math.inf
         best_opponents = []
         for i, opponent in enumerate(self.items):
-            if i == id:
+            if i == id or i in self.ids_to_avoid:
                 continue
             pair = (id, i) if id < i else (i, id)
             if pair not in self.comparisons:
@@ -102,25 +107,35 @@ class Ranker:
 
         if len(best_opponents) == 1:
             return best_opponents[0]
-        
-        # Choose opponent with expected score closest to 0.5
+
+        # Choose opponent with the highest variance in expected score
         item = self.items[id]
-        closest_distance = 0.5
+        highest_variance = 0
         new_best_opponents = []
 
         for opponent in best_opponents:
-            distance = abs(item.get_expected_score(self.items[opponent]) - 0.5)
-            if distance < closest_distance:
-                closest_distance = distance
+            variance = (
+                (
+                    math.log(10)
+                    * 10 ** ((item.rating - self.items[opponent].rating) / 400)
+                    / (1 + 10 ** ((item.rating - self.items[opponent].rating) / 400))
+                    ** 2
+                )
+                ** 2
+                * (item.variance**2 + self.items[opponent].variance ** 2)
+                / 400**2
+            )
+            if variance > highest_variance:
+                highest_variance = variance
                 new_best_opponents = [opponent]
-            elif distance == closest_distance:
+            elif variance == highest_variance:
                 new_best_opponents.append(opponent)
 
         if choose_random:
             return random.choice(new_best_opponents)
         return new_best_opponents[0]
 
-    def get_next_comparison(self):
+    def get_next_comparison(self, *, choose_random=True):
         """
         Determines and returns the next two items to compare, based on current rankings and comparisons.
         """
@@ -131,9 +146,11 @@ class Ranker:
         # Choose best opponent for that player
         best_opponent_id = self.get_best_opponent(best_id)
 
+        if random.random() < 0.5 and choose_random:
+            return (self.items[best_opponent_id].name, self.items[best_id].name)
         return (self.items[best_id].name, self.items[best_opponent_id].name)
 
-    def add_comparison(self, name1, name2, result):
+    def add_comparison(self, name1, name2, result, *, avoid_next=True):
         """
         Updates the internal ranking system based on the outcome of a comparison.
         'result' is a float from 0 to 1 representing the preference for item2.
@@ -143,7 +160,7 @@ class Ranker:
             raise ValueError("Cannot compare an item to itself.")
         if result < 0 or result > 1:
             raise ValueError("Comparison result must be between 0 and 1.")
-        
+
         id1, id2 = -1, -1
         for i, item in enumerate(self.items):
             if item.name == name1:
@@ -155,7 +172,7 @@ class Ranker:
             raise ValueError(f"Item '{name1}' not found.")
         if id2 == -1:
             raise ValueError(f"Item '{name2}' not found.")
-        
+
         if id1 > id2:
             id1, id2 = id2, id1
             result = 1 - result
@@ -171,6 +188,9 @@ class Ranker:
         item1_copy = Item(item1.name, item1.rating, item1.variance)
         item1.update(1 - result, item2)
         item2.update(result, item1_copy)
+
+        if avoid_next:
+            self.ids_to_avoid = [id1, id2]
 
     def get_ranking(self):
         """
@@ -188,15 +208,17 @@ class Ranker:
 
         while high - low > epsilon:
             mid = (high + low) / 2
-            expected_score = sum(1 / (1 + 10 ** ((rating - mid) / 400)) for rating in ratings)
+            expected_score = sum(
+                [1 / (1 + 10 ** ((rating - mid) / 400)) for rating in ratings]
+            )
             if expected_score < score:
-                high = mid
-            else:
                 low = mid
+            else:
+                high = mid
 
         return mid
 
-    def compile_results(self, *, epsilon=1e-6):
+    def compile_results(self, *, epsilon=1e-3, shrink_factor=0.95):
         """
         Applies a more sophisticated algorithm to refine rankings based on comparisons.
         This is a placeholder for actual implementation.
@@ -205,37 +227,47 @@ class Ranker:
         ratings = [item.rating for item in self.items]
 
         while True:
-
             new_ratings = []
 
             for i, item in enumerate(self.items):
+                if i == 0:
+                    new_ratings.append(item.rating)
+                    continue
                 opponent_ratings = []
                 score = 0
                 for comparison in self.comparisons:
+                    # Shrink scores to avoid "perfect" scores and account for mistakes
                     if comparison[0] == i and len(self.comparisons[comparison]) > 0:
-                        opponent_ratings.extend([self.items[comparison[1]].rating] * len(self.comparisons[comparison]))
-                        score += sum(self.comparisons[comparison])
+                        opponent_ratings.extend(
+                            [ratings[comparison[1]]] * len(self.comparisons[comparison])
+                        )
+                        score += (
+                            len(self.comparisons[comparison]) / 2
+                            - sum(self.comparisons[comparison])
+                        ) * shrink_factor + len(self.comparisons[comparison]) / 2
                     elif comparison[1] == i and len(self.comparisons[comparison]) > 0:
-                        opponent_ratings.extend([self.items[comparison[0]].rating] * len(self.comparisons[comparison]))
-                        score += len(self.comparisons[comparison]) - sum(self.comparisons[comparison])
+                        opponent_ratings.extend(
+                            [ratings[comparison[0]]] * len(self.comparisons[comparison])
+                        )
+                        score += (
+                            sum(self.comparisons[comparison])
+                            - len(self.comparisons[comparison]) / 2
+                        ) * shrink_factor + len(self.comparisons[comparison]) / 2
 
                 if not opponent_ratings:
                     new_ratings.append(item.rating)
                     continue
 
-                # Correct by 10% of a draw
-                if score == 0:
-                    score += 0.05
-                elif score == len(opponent_ratings):
-                    score -= 0.05
-
-                new_rating = self.get_performance(opponent_ratings, score, epsilon=epsilon)
+                new_rating = self.get_performance(
+                    opponent_ratings, score, epsilon=epsilon
+                )
                 new_ratings.append(new_rating)
 
             if all(abs(new - old) < epsilon for new, old in zip(new_ratings, ratings)):
                 break
+
             ratings = new_ratings
 
+        avg_rating = sum(ratings) / len(ratings)
         for i, item in enumerate(self.items):
-            item.rating = ratings[i]
-
+            item.rating = ratings[i] - avg_rating
