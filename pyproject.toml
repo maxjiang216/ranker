@@ -1,0 +1,16 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ranker"
+version = "0.1.0"
+description = "Efficient library for ranking many items from sparse, adaptive pairwise comparisons."
+authors = [{ name="Max Jiang", email="maxjiang216@gmail.com" }]
+readme = "README.md"
+license = { file = "LICENSE" }
+dependencies = [
+    "numpy",
+    "scikit-learn"
+]
+requires-python = ">=3.8"
