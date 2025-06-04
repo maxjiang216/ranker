@@ -1,7 +1,0 @@
-a
-b
-c d e
-abc
-abc'd
-"abcd"
-abc\nd
