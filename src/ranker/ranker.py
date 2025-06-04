@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 from sklearn.cluster import KMeans
 
-from player import Player
+from .player import Player
 
 
 class Ranker:
@@ -107,14 +107,20 @@ class Ranker:
         return sorted(self.players.values(), key=lambda x: x.rating, reverse=True)
 
     def get_performance(
-        self, opponent_ratings: List[float], score: float, *, epsilon: float = 1e-6
+        self,
+        opponent_ratings: List[float],
+        score: float,
+        *,
+        epsilon: float = 1e-6,
+        rating_min: float = -4000.0,
+        rating_max: float = 4000.0,
     ) -> float:
         """
         Computes the performance rating needed to achieve the given score
         against opponents with the provided ratings.
-        Uses binary search.
+        Uses binary search. Caps the result for stability.
         """
-        low, high = -10000.0, 10000.0
+        low, high = rating_min, rating_max
 
         while high - low > epsilon:
             mid = (high + low) / 2
@@ -126,7 +132,8 @@ class Ranker:
             else:
                 high = mid
 
-        return mid
+        # Clamp to min/max
+        return max(rating_min, min(rating_max, mid))
 
     def compile_results(
         self, *, epsilon: float = 1e-3, shrink_factor: float = 0.95
@@ -169,7 +176,7 @@ class Ranker:
                 new_rating = self.get_performance(
                     opponent_ratings, score, epsilon=epsilon
                 )
-                new_ratings[idx] = new_rating
+                new_ratings[idx] = (item.rating + new_rating) / 2
 
             # Convergence check
             if all(abs(new - old) < epsilon for new, old in zip(new_ratings, ratings)):
@@ -204,7 +211,7 @@ class Ranker:
             key=lambda kv: -np.mean([self.players[name].rating for name in kv[1]]),
         )
         return {i: names for i, (_, names) in enumerate(sorted_tiers)}
-    
+
     def dump_tiers(self, filename: str, n_tiers: int = 5) -> None:
         """
         Compiles the ratings, computes the tiers, and outputs the tiered ranking to a file.

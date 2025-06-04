@@ -1,0 +1,48 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# pytest and test cache
+.pytest_cache/
+*.cover
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+nosetests.xml
+
+# Virtual environments
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Editor/project settings
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Distribution / packaging
+*.egg-info/
+dist/
+build/
+.eggs/
+pip-wheel-metadata/
+
+# Jupyter/IPython
+.ipynb_checkpoints
+
+# Logs and misc
+*.log
+.DS_Store
+Thumbs.db
+
+# PyInstaller
+*.spec
+
+# Unit test / test output
+test-output/

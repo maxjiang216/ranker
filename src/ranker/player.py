@@ -1,6 +1,7 @@
 import math
 from typing import Any, Dict
 
+
 class Player:
     """
     Represents an object to be ranked.
@@ -22,8 +23,10 @@ class Player:
         self.num_matches: int = 0
 
     def __repr__(self) -> str:
-        return (f"Player(name={self.name!r}, rating={self.rating:.2f}, "
-                f"deviation={self.deviation:.2f}, matches={self.num_matches})")
+        return (
+            f"Player(name={self.name!r}, rating={self.rating:.2f}, "
+            f"deviation={self.deviation:.2f}, matches={self.num_matches})"
+        )
 
     def update(self, score: float, opp_rating: float, opp_deviation: float) -> None:
         """
@@ -37,19 +40,21 @@ class Player:
         self.deviation = self.get_new_deviation(d2)
         self.num_matches += 1
 
-    def get_new_rating(self, score: float, opp_rating: float, opp_deviation: float, d2: float) -> float:
+    def get_new_rating(
+        self, score: float, opp_rating: float, opp_deviation: float, d2: float
+    ) -> float:
         """
         Calculate new rating after a match.
         """
         expected = self.get_expected_score(opp_rating, opp_deviation)
-        denom = (1 / (opp_deviation ** 2)) + (1 / d2)
+        denom = (1 / (opp_deviation**2)) + (1 / d2)
         return self.rating + self.Q / denom * (score - expected)
 
     def get_new_deviation(self, d2: float) -> float:
         """
         Calculate new deviation after a match.
         """
-        return math.sqrt(1 / (1 / (self.deviation ** 2) + 1 / d2))
+        return math.sqrt(1 / (1 / (self.deviation**2) + 1 / d2))
 
     def get_d2(self, opp_rating: float, opp_deviation: float) -> float:
         """
@@ -57,7 +62,7 @@ class Player:
         """
         g = self.get_g(opp_deviation)
         expected = self.get_expected_score(opp_rating, opp_deviation)
-        return 1 / (self.Q ** 2 * g ** 2 * expected * (1 - expected))
+        return 1 / (self.Q**2 * g**2 * expected * (1 - expected))
 
     def get_expected_score(self, opp_rating: float, opp_deviation: float) -> float:
         """
@@ -70,7 +75,7 @@ class Player:
         """
         Glicko scale factor for a deviation.
         """
-        return 1 / math.sqrt(1 + (3 * (self.Q ** 2) * (deviation ** 2)) / math.pi ** 2)
+        return 1 / math.sqrt(1 + (3 * (self.Q**2) * (deviation**2)) / math.pi**2)
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize to a dict."""
