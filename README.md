@@ -37,10 +37,26 @@ uv sync --extra web      # installs the library + CLI + web app
 uv run ranker new Anime --items "Spirited Away,Akira,Cowboy Bebop,Naruto" --scale 7
 uv run ranker rank Anime      # interactive: answer 1..7 (decimals ok), u=undo f=finish q=quit
 uv run ranker show Anime      # print the current ranking + tiers
+uv run ranker export Anime    # write md + json (+ a tier-list PNG if items have images)
 uv run ranker lists
 ```
 
 (Also available as `python -m ranker ...`.)
+
+## Import from tiermaker.com
+
+tiermaker.com sits behind Cloudflare, so a URL can't be scraped directly. Instead, open
+the template in your browser, **Save As → "Webpage, Complete"**, then import the saved
+`.html` (the browser writes the item images into the sibling `_files/` folder):
+
+```bash
+uv run ranker import Heroes --tiermaker ~/Downloads/heroes.html --scale 7
+uv run ranker rank Heroes
+uv run ranker export Heroes   # → ranker-data/rankings/Heroes.png, a tiermaker-style image
+```
+
+Item labels come from each image's `alt`/`title` (else the filename). Ranking then exports
+a tier-list PNG (colored S/A/B/… rows with thumbnails) rendered locally with Pillow.
 
 ## Web app
 

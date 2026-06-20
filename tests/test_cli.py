@@ -1,3 +1,5 @@
+from PIL import Image
+
 from ranker.cli import main, run_session
 from ranker.session import Ranker
 
@@ -46,6 +48,36 @@ def test_run_session_undo_then_quit():
     out = []
     run_session(r, save=lambda x: None, read=lambda prompt: next(answers), write=out.append)
     assert len(r.model.comparisons) == 0  # recorded one, undid it, quit
+
+
+def test_import_tiermaker_and_export(tmp_path, capsys):
+    files = tmp_path / "tl_files"
+    files.mkdir()
+    for i in range(1, 5):
+        Image.new("RGB", (30, 30)).save(files / f"i{i}.png")
+    page = tmp_path / "tl.html"
+    page.write_text(
+        '<div id="images-to-sort">'
+        + "".join(
+            f'<div class="character"><img src="tl_files/i{i}.png" alt="C{i}"></div>'
+            for i in range(1, 5)
+        )
+        + "</div>"
+    )
+    data = str(tmp_path / "d")
+    assert main(["--data", data, "import", "TL", "--tiermaker", str(page)]) == 0
+    assert "Imported 4 items" in capsys.readouterr().out
+
+    # record a few answers so export has a ranking
+    from ranker.library import Library
+
+    lib = Library(data)
+    ranker = lib.get_session("TL")
+    ranker.record("C1", "C2", 6)
+    ranker.record("C3", "C4", 6)
+    lib.save_session("TL", ranker)
+    assert main(["--data", data, "export", "TL", "--tiers", "2"]) == 0
+    assert "png:" in capsys.readouterr().out
 
 
 def test_run_session_rejects_out_of_range():

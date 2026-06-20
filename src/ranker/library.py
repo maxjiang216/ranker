@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -97,6 +98,62 @@ class Library:
     def list_exists(self, name: str) -> bool:
         return (self.lists_dir / f"{_slug(name)}.json").exists()
 
+    def import_tiermaker(
+        self, name: str, html_path: str, *, scale: int = 7
+    ) -> ListSpec:
+        """Build a list from a saved tiermaker.com page (Save As -> "Webpage, Complete").
+
+        Local images are copied into the library's ``images/`` folder; items whose images
+        are remote URLs keep the URL. See :mod:`ranker.tiermaker`.
+        """
+        from . import tiermaker
+
+        parsed = tiermaker.parse_saved_page(html_path)
+        if len(parsed) < 2:
+            raise ValueError(
+                f"Found {len(parsed)} item image(s) in {html_path!r}; need at least 2. "
+                "Save the template page as 'Webpage, Complete' and pass that .html file."
+            )
+        used: set = set()
+        items: List[Item] = []
+        for p in parsed:
+            local = tiermaker.resolve_src(p.src, html_path)
+            image: Optional[str] = None
+            if local is not None:
+                fname = self._copy_image(local, p.name, used)
+                image = fname
+            elif p.src.startswith(("http://", "https://")):
+                image = p.src  # served directly by the browser
+            items.append(Item(name=p.name, image=image))
+        spec = ListSpec(name=name, scale=scale, items=items)
+        self.save_list(spec)
+        return spec
+
+    def _copy_image(self, src: Path, item_name: str, used: set) -> str:
+        """Copy ``src`` into ``images/`` under a unique, slugged filename; return it."""
+        ext = src.suffix.lower() or ".png"
+        base = _slug(item_name) or "item"
+        fname = f"{base}{ext}"
+        i = 1
+        while fname in used or (self.images_dir / fname).exists():
+            fname = f"{base}-{i}{ext}"
+            i += 1
+        used.add(fname)
+        shutil.copyfile(src, self.images_dir / fname)
+        return fname
+
+    def image_paths(self, name: str) -> Dict[str, Path]:
+        """Map item name -> local image file (only items with a copied local image)."""
+        out: Dict[str, Path] = {}
+        if not self.list_exists(name):
+            return out
+        for it in self.load_list(name).items:
+            if it.image and not it.image.startswith(("http://", "https://")):
+                p = self.images_dir / it.image
+                if p.is_file():
+                    out[it.name] = p
+        return out
+
     # -- sessions -------------------------------------------------------------
 
     def _session_path(self, name: str) -> Path:
@@ -158,4 +215,16 @@ class Library:
         md_path = self.rankings_dir / f"{_slug(name)}.md"
         md_path.write_text("\n".join(lines))
 
-        return {"json": str(json_path), "md": str(md_path)}
+        out = {"json": str(json_path), "md": str(md_path)}
+
+        images = self.image_paths(name)
+        if images:
+            from . import tiermaker
+
+            png_path = self.rankings_dir / f"{_slug(name)}.png"
+            try:
+                tiermaker.render_tierlist(tiers, images, str(png_path))
+                out["png"] = str(png_path)
+            except RuntimeError:
+                pass  # Pillow not installed; skip the image, keep md+json
+        return out
