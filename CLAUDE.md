@@ -20,8 +20,13 @@ uv run pytest tests/test_bt.py
 uv run pytest tests/test_bt.py::test_bt_recovers_clear_order
 uv run pytest -k tiers
 
+# CLI (entry point `ranker`, or `python -m ranker`)
+uv run ranker new L --items "A,B,C" --scale 7
+uv run ranker rank L          # interactive; decimal answers allowed
+uv run ranker show L
+
 # Launch the web app (http://127.0.0.1:8000)
-uv run python -m ranker.web --port 8000 --data ranker-data
+uv run ranker-web --port 8000 --data ranker-data   # or: uv run ranker web
 ```
 
 Dependencies: runtime `numpy`, `scikit-learn`; `[project.optional-dependencies].web`
@@ -90,11 +95,17 @@ tagged `engine:"glicko"`.
 overridable via `$RANKER_DATA` or `--data`): `lists/` (Item/ListSpec input sets),
 `sessions/` (BT state), `rankings/` (exported md+json), `images/`. `ranker.web` is a
 FastAPI app (`create_app`) plus a static SPA in `web/static/`; launch with
-`uv run python -m ranker.web`. The web UI is integer-only (1..scale buttons/hotkeys);
+`uv run ranker-web`. The web UI is integer-only (1..scale buttons/hotkeys);
 decimals stay a CLI feature. The `Selector` is side-effect-free so the UI can poll
 `next_pair` each request.
 
+### CLI
+
+`ranker.cli` provides subcommands (`lists`, `new`, `rank`, `show`, `web`) over the same
+`Library` + `Ranker`. `run_session` is the interactive loop (decimal answers; `u`/`f`/`q`);
+its `read`/`write`/`save` callbacks are injectable for testing. Entry points in pyproject:
+`ranker` → `ranker.cli:main` (also `python -m ranker`), `ranker-web` → the web launcher.
+
 ### Not yet built
 
-CLI (interactive, decimal answers) and tiermaker.com export are designed
-(`docs/design.md` §11) but unimplemented. `main.py` is still a 2-line stub.
+tiermaker.com export is designed (`docs/design.md` §11) but unimplemented.
