@@ -15,6 +15,10 @@ dependencies = [
 ]
 requires-python = ">=3.8"
 
+[project.scripts]
+ranker = "ranker.cli:main"
+ranker-web = "ranker.web.__main__:main"
+
 [project.optional-dependencies]
 web = ["fastapi", "uvicorn"]
 
