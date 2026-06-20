@@ -46,3 +46,6 @@ Thumbs.db
 
 # Unit test / test output
 test-output/
+
+# Ranker library (user data: lists, sessions, exported rankings, images)
+ranker-data/
