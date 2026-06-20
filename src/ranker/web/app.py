@@ -71,6 +71,7 @@ def create_app(data_dir: Optional[str] = None) -> FastAPI:
         out = {
             "list": name,
             "scale": spec.scale,
+            "n_items": len(spec.items),
             "asked": len(ranker.model.comparisons),
             "progress": ranker.progress(),
             "should_stop": stop,

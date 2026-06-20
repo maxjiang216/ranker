@@ -4,6 +4,7 @@ const enc = encodeURIComponent;
 
 let LIST = null;
 let SCALE = 7;
+let KUSER = false; // has the user manually set the tier count?
 let CURRENT = null; // {left, right}
 let LAST = null; // last state payload (for resume)
 let SCREEN = "home";
@@ -142,7 +143,11 @@ function applyState(st) {
 
 async function openSession(name) {
   LIST = name;
-  applyState(await api("/session/" + enc(name)));
+  const st = await api("/session/" + enc(name));
+  // Default tier count to floor(sqrt(n)); user can adjust with the stepper.
+  KUSER = false;
+  $("#tier-k").value = Math.max(1, Math.floor(Math.sqrt(st.n_items || 4)));
+  applyState(st);
 }
 
 async function submit(answer) {
@@ -161,27 +166,9 @@ async function undo() {
 
 // -- result -------------------------------------------------------------------
 
-// [low, high, label] for the grouping slider: narrower band -> more tiers.
-const BANDS = [
-  [0.4, 0.6, "fine"],
-  [0.3, 0.7, "balanced"],
-  [0.2, 0.8, "coarse"],
-  [0.1, 0.9, "broad"],
-];
-
 function tierParams() {
-  const method = $("#tier-method").value;
-  const k = parseInt($("#tier-k").value, 10) || 5;
-  const [low, high] = BANDS[parseInt($("#tier-band").value, 10)];
-  const q = new URLSearchParams({ method, k, low, high });
-  return q.toString();
-}
-
-function syncTierControls() {
-  const method = $("#tier-method").value;
-  $("#k-wrap").classList.toggle("hidden", method !== "kmeans");
-  $("#band-wrap").classList.toggle("hidden", method !== "graph");
-  $("#band-label").textContent = BANDS[parseInt($("#tier-band").value, 10)][2];
+  const k = parseInt($("#tier-k").value, 10) || 1;
+  return new URLSearchParams({ method: "kmeans", k }).toString();
 }
 
 function renderResult(data, doExport) {
@@ -217,7 +204,6 @@ function renderResult(data, doExport) {
 }
 
 async function showResult(doExport) {
-  syncTierControls();
   const q = tierParams();
   const data = doExport
     ? (await post("/session/" + enc(LIST) + "/finish?" + q)).result
@@ -243,8 +229,9 @@ $("#finish").onclick = () => showResult(true);
 $("#resume").onclick = () => (LAST && LAST.pair ? renderCompare(LAST) : openSession(LIST));
 $("#home-from-compare").onclick = loadHome;
 $("#home-from-result").onclick = loadHome;
-$("#tier-method").onchange = () => showResult(false);
-$("#tier-k").oninput = () => showResult(false);
-$("#tier-band").oninput = () => showResult(false);
+$("#tier-k").oninput = () => {
+  KUSER = true;
+  showResult(false);
+};
 
 loadHome();
