@@ -4,8 +4,10 @@ Subcommands::
 
     ranker lists                       list saved lists
     ranker new NAME --items a,b,c      create a list (or --file items.txt)
+    ranker import NAME --tiermaker f   import items from a saved tiermaker.com page
     ranker rank NAME                   run an interactive comparison session
     ranker show NAME                   print the current ranking + tiers
+    ranker export NAME                 write ranking to md + json (+ PNG if images)
     ranker web                         launch the localhost web app
 
 The interactive session accepts **decimal** answers on the 1..scale preference scale
@@ -17,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import os
 from typing import Callable, List, Optional
 
 from .library import Item, Library, ListSpec
@@ -144,6 +147,38 @@ def cmd_rank(lib: Library, args) -> int:
     lib.save_session(args.name, ranker)
     paths = lib.export_ranking(args.name, ranker, tier_method="kmeans", k=_default_tiers(len(ranker.model.items)))
     print(f"\nSaved ranking to {paths['md']}")
+    if "png" in paths:
+        print(f"Tier-list image: {paths['png']}")
+    return 0
+
+
+def cmd_import(lib: Library, args) -> int:
+    if not os.path.isfile(args.tiermaker):
+        print(f"No such file: {args.tiermaker!r}")
+        return 1
+    try:
+        spec = lib.import_tiermaker(args.name, args.tiermaker, scale=args.scale)
+    except ValueError as exc:
+        print(str(exc))
+        return 1
+    n_img = sum(1 for it in spec.items if it.image)
+    print(f"Imported {len(spec.items)} items into '{args.name}' ({n_img} with images).")
+    print(f"Start ranking with: ranker rank {args.name!r}")
+    return 0
+
+
+def cmd_export(lib: Library, args) -> int:
+    if not lib.list_exists(args.name):
+        print(f"No such list: {args.name!r}. See 'ranker lists'.")
+        return 1
+    ranker = lib.get_session(args.name)
+    k = _default_tiers(len(ranker.model.items)) if args.tiers is None else args.tiers
+    paths = lib.export_ranking(args.name, ranker, tier_method="kmeans", k=k)
+    for kind in ("md", "json", "png"):
+        if kind in paths:
+            print(f"{kind}: {paths[kind]}")
+    if "png" not in paths:
+        print("(no PNG: items have no images, or Pillow is not installed)")
     return 0
 
 
@@ -179,6 +214,17 @@ def build_parser() -> argparse.ArgumentParser:
     pn.add_argument("--scale", type=int, default=7)
     pn.set_defaults(func=cmd_new)
 
+    pi = sub.add_parser("import", help="import items from a saved tiermaker.com page")
+    pi.add_argument("name")
+    pi.add_argument(
+        "--tiermaker",
+        required=True,
+        metavar="FILE.html",
+        help="saved tiermaker page ('Save As -> Webpage, Complete')",
+    )
+    pi.add_argument("--scale", type=int, default=7)
+    pi.set_defaults(func=cmd_import)
+
     pr = sub.add_parser("rank", help="run an interactive comparison session")
     pr.add_argument("name")
     pr.set_defaults(func=cmd_rank)
@@ -187,6 +233,11 @@ def build_parser() -> argparse.ArgumentParser:
     ps.add_argument("name")
     ps.add_argument("--tiers", type=int, default=None, help="number of tiers (default floor(sqrt(n)))")
     ps.set_defaults(func=cmd_show)
+
+    pe = sub.add_parser("export", help="write ranking to md + json (+ PNG if images)")
+    pe.add_argument("name")
+    pe.add_argument("--tiers", type=int, default=None, help="number of tiers (default floor(sqrt(n)))")
+    pe.set_defaults(func=cmd_export)
 
     pw = sub.add_parser("web", help="launch the localhost web app")
     pw.add_argument("--host", default="127.0.0.1")

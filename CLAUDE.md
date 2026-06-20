@@ -64,6 +64,11 @@ from the raw answer log after every change. Modules:
 - **`hodge.py`** — HodgeRank intransitivity diagnostic. **Measures cardinal (margin)
   consistency, not just ordinal**: additive margins → ~0 residual; saturated answers on a
   chain produce real curl. Reports `inconsistency_ratio` + triangle cycles. Report-only.
+- **`tiermaker.py`** — tiermaker.com bridge. Import: tiermaker is behind Cloudflare so
+  URLs can't be scraped server-side; flow is browser **"Save As → Webpage, Complete"** then
+  `parse_saved_page(html)` (stdlib `html.parser`; reads item-pool `<img>`s, labels from
+  `alt`/`title` else filename) + `resolve_src` (sibling `_files/` images). Export:
+  `render_tierlist` (Pillow) draws a tiermaker-style PNG — colored S/A/B/… rows + thumbnails.
 
 Comparison convention everywhere: `(a, b, answer)` = left item `a`, right item `b`,
 `answer` on the 1..`scale` scale = preference toward the **right** item (generalizes the
@@ -93,7 +98,9 @@ tagged `engine:"glicko"`.
 
 `ranker.library.Library` manages a git-ignored data folder (default `./ranker-data`,
 overridable via `$RANKER_DATA` or `--data`): `lists/` (Item/ListSpec input sets),
-`sessions/` (BT state), `rankings/` (exported md+json), `images/`. `ranker.web` is a
+`sessions/` (BT state), `rankings/` (exported md+json+png), `images/`.
+`import_tiermaker(name, html)` builds a list + copies images; `export_ranking` also
+renders a PNG when items have local images (`image_paths` helper). `ranker.web` is a
 FastAPI app (`create_app`) plus a static SPA in `web/static/`; launch with
 `uv run ranker-web`. The web UI is integer-only (1..scale buttons/hotkeys);
 decimals stay a CLI feature. The `Selector` is side-effect-free so the UI can poll
@@ -101,11 +108,13 @@ decimals stay a CLI feature. The `Selector` is side-effect-free so the UI can po
 
 ### CLI
 
-`ranker.cli` provides subcommands (`lists`, `new`, `rank`, `show`, `web`) over the same
-`Library` + `Ranker`. `run_session` is the interactive loop (decimal answers; `u`/`f`/`q`);
+`ranker.cli` provides subcommands (`lists`, `new`, `import`, `rank`, `show`, `export`,
+`web`) over the same `Library` + `Ranker`. `import` ingests a saved tiermaker page
+(`--tiermaker FILE.html`); `export` writes md+json (+ PNG when items have images). `run_session` is the interactive loop (decimal answers; `u`/`f`/`q`);
 its `read`/`write`/`save` callbacks are injectable for testing. Entry points in pyproject:
 `ranker` → `ranker.cli:main` (also `python -m ranker`), `ranker-web` → the web launcher.
 
 ### Not yet built
 
-tiermaker.com export is designed (`docs/design.md` §11) but unimplemented.
+tiermaker import/export is implemented in the CLI (`tiermaker.py`); a web-UI surface for
+it (upload saved page, show/download the rendered PNG) is not yet wired in.
