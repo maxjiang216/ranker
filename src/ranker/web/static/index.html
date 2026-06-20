@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ranker</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header><h1>Ranker</h1></header>
+
+  <main>
+    <!-- Home -->
+    <section id="home" class="screen">
+      <div class="row-between">
+        <h2>Your lists</h2>
+        <button id="show-new">+ New list</button>
+      </div>
+      <ul id="lists"></ul>
+    </section>
+
+    <!-- New list -->
+    <section id="newlist" class="screen hidden">
+      <h2>New list</h2>
+      <label>Name <input id="nl-name" type="text" /></label>
+      <label>Scale (points)
+        <input id="nl-scale" type="number" min="2" max="9" value="7" />
+      </label>
+      <p class="hint">One item per line: <code>name | image (url or filename) | description</code>
+        — image and description optional.</p>
+      <textarea id="nl-items" rows="10" placeholder="Spirited Away | | Miyazaki classic
+Akira | akira.jpg | cyberpunk"></textarea>
+      <div class="row">
+        <button id="nl-create">Create</button>
+        <button id="nl-cancel" class="ghost">Cancel</button>
+      </div>
+      <p id="nl-error" class="error"></p>
+    </section>
+
+    <!-- Compare -->
+    <section id="compare" class="screen hidden">
+      <div class="progress"><div id="bar"></div></div>
+      <p id="prog-text" class="hint"></p>
+
+      <div class="pair">
+        <div class="card" id="card-left"></div>
+        <div class="vs">vs</div>
+        <div class="card" id="card-right"></div>
+      </div>
+
+      <div class="scale">
+        <span id="lbl-left" class="endlabel"></span>
+        <div id="buttons" class="buttons"></div>
+        <span id="lbl-right" class="endlabel"></span>
+      </div>
+      <p class="hint">Press <strong>1</strong>–<strong id="hk-max">7</strong>, or click. 1 = strongly left, middle = tie.</p>
+
+      <div class="row">
+        <button id="undo" class="ghost">↶ Undo</button>
+        <button id="finish">Finish &amp; see ranking</button>
+        <button id="home-from-compare" class="ghost">Home</button>
+      </div>
+    </section>
+
+    <!-- Result -->
+    <section id="result" class="screen hidden">
+      <h2 id="result-title">Ranking</h2>
+
+      <div class="controls">
+        <label>Tiers by
+          <select id="tier-method">
+            <option value="graph">confidence (auto count)</option>
+            <option value="kmeans">fixed count</option>
+          </select>
+        </label>
+        <label id="k-wrap" class="hidden">how many
+          <input id="tier-k" type="number" min="1" max="20" value="5" />
+        </label>
+        <label id="band-wrap">grouping
+          <input id="tier-band" type="range" min="0" max="3" step="1" value="1" />
+          <span id="band-label" class="hint">balanced</span>
+        </label>
+      </div>
+
+      <div id="tiers"></div>
+      <p id="cycles" class="hint"></p>
+      <div class="row">
+        <button id="resume" class="ghost">Keep comparing</button>
+        <button id="home-from-result" class="ghost">Home</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -14,3 +14,15 @@ dependencies = [
     "scikit-learn"
 ]
 requires-python = ">=3.8"
+
+[project.optional-dependencies]
+web = ["fastapi", "uvicorn"]
+
+[dependency-groups]
+dev = ["pytest", "httpx", "fastapi", "uvicorn"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ranker"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/ranker/web/static" = "ranker/web/static"
