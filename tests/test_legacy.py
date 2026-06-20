@@ -2,7 +2,7 @@ import os
 import tempfile
 import json
 import pytest
-from ranker import Ranker
+from ranker.legacy import Ranker
 
 # Use a simple deterministic set of names for reproducibility
 PLAYER_NAMES = ["A", "B", "C", "D"]
